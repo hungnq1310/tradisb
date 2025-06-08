@@ -7,7 +7,11 @@ from binance.client import Client as BinanceClient
 # Setup Binance client
 BINANCE_API_KEY = os.getenv('BINANCE_API_KEY', '')
 BINANCE_API_SECRET = os.getenv('BINANCE_API_SECRET', '')
-binance_client = BinanceClient(api_key=BINANCE_API_KEY, api_secret=BINANCE_API_SECRET)
+binance_client = BinanceClient(
+    api_key=BINANCE_API_KEY, 
+    api_secret=BINANCE_API_SECRET,
+    testnet=True
+)
 
 # Discord bot client
 class MyClient(discord.Client):
@@ -28,6 +32,51 @@ class MyClient(discord.Client):
          
         if message.content.startswith('!hello'):
             await message.channel.send(f'Hello {message.author.name}!')
+        
+        # New feature: Get crypto price
+        if message.content.startswith('!price'):
+            await self.handle_price_command(message)
+
+    # Handle price command
+    async def handle_price_command(self, message):
+        try:
+            # Extract symbol from command (!price BTC or !price BTCUSDT)
+            parts = message.content.split()
+            if len(parts) < 2:
+                await message.channel.send("❌ Please specify a symbol. Example: `!price BTC` or `!price BTCUSDT`")
+                return
+            
+            symbol = parts[1].upper()
+            
+            # If symbol doesn't end with USDT, add it
+            if not symbol.endswith('USDT'):
+                symbol += 'USDT'
+            
+            # Get ticker data
+            ticker = binance_client.get_ticker(symbol=symbol)
+            
+            # Format the response
+            price = float(ticker['lastPrice'])
+            change_percent = float(ticker['priceChangePercent'])
+            volume = float(ticker['volume'])
+            
+            # Choose emoji based on price change
+            emoji = "📈" if change_percent >= 0 else "📉"
+            change_sign = "+" if change_percent >= 0 else ""
+            
+            response = f"{emoji} **{symbol}**\n"
+            response += f"💰 Price: ${price:,.4f}\n"
+            response += f"📊 24h Change: {change_sign}{change_percent:.2f}%\n"
+            response += f"📈 24h Volume: {volume:,.2f}"
+            
+            await message.channel.send(response)
+            
+        except Exception as e:
+            error_msg = str(e)
+            if "Invalid symbol" in error_msg or "symbol does not exist" in error_msg.lower():
+                await message.channel.send(f"❌ Symbol `{symbol}` not found. Please check the symbol name.")
+            else:
+                await message.channel.send(f"❌ Error fetching price data: {error_msg}")
 
     # called when a reaction is added to a message
     async def on_reaction_add(self, reaction, user):
@@ -44,6 +93,7 @@ class MyClient(discord.Client):
         channel_ids = [channel.id for guild in self.guilds for channel in guild.text_channels if channel.permissions_for(guild.me).send_messages]
         
         while not self.is_closed():
+            print("Fetching trade signals...")
             # Example: Fetch top gainers
             tickers = binance_client.get_ticker_24hr()
             top = sorted(tickers, key=lambda x: float(x['priceChangePercent']), reverse=True)[:3]
