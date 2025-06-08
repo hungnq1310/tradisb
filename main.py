@@ -19,7 +19,6 @@ trading_validator = TradingSignalValidator(binance_client)
 
 # Discord bot client
 class MyClient(discord.Client):
-    
     # called when the bot is ready
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')
@@ -180,20 +179,6 @@ class MyClient(discord.Client):
         
         while not self.is_closed():
             print("Fetching trade signals...")
-            # Example: Fetch top gainers
-            tickers = binance_client.get_ticker()
-            
-            # TODO: Not Generate signals for qualifying tickers HERE
-            for ticker in tickers:
-                signal = trading_validator.generate_trading_signal(ticker)
-                if signal:
-                    msg = f"🚨 **Trading Signal Detected**\n"
-                    msg += f"📊 {signal.symbol} {signal.signal_type}\n"
-                    msg += f"💰 Price: ${signal.price:,.4f}\n"
-                    msg += f"📈 Change: {signal.change_percent:+.2f}%\n"
-                    msg += f"🎯 Confidence: {signal.confidence:.1%}"
-                    await self.broadcast_message(channel_ids, msg)
-            
             # Process pending orders
             pending_orders = trading_validator.get_pending_orders()
             for order in pending_orders:
@@ -210,7 +195,7 @@ class MyClient(discord.Client):
                 except Exception as e:
                     print(f"Error processing order {order.id}: {e}")
 
-            await asyncio.sleep(300)  # Wait 5 minutes
+            await asyncio.sleep(5)  # Wait 5 minutes
 
     # Helper function to broadcast messages to all channels
     async def broadcast_message(self, channel_ids, content):
